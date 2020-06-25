@@ -1,0 +1,25 @@
+# link me in build directory and start with
+# tmuxp load test_covid.tmuxp.yaml
+session_name: test_covid
+windows:
+  - test_covid:
+    layout: tiled
+    panes:
+      - shell_command:
+        - clear
+        - java -jar ../java/target/emailsmpc-1.0-SNAPSHOT-jar-with-dependencies.jar ../data/testserver2config.toml
+      - shell_command:
+        - clear
+        - java -jar ../java/target/emailsmpc-1.0-SNAPSHOT-jar-with-dependencies.jar ../data/testserver3config.toml
+      - shell_command:
+        - clear
+        - sleep 2
+        - java -jar ../java/target/emailsmpc-1.0-SNAPSHOT-jar-with-dependencies.jar ../data/testserver1config.toml
+      - shell_command:
+        - clear
+        - curl -k -G https://127.0.0.1:8088/rest/histogram
+        - sleep 4
+        - curl -k -G https://127.0.0.1:8088/rest/histogram
+        - sleep 3
+        - curl -k -G https://127.0.0.1:8088/rest/histogram
+

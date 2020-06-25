@@ -1,0 +1,28 @@
+study_name = "Test Study"
+host = false
+periodic_rebuild = false
+data_file = "/home/kussel/p/email_smpc/data/milestone da10.5.csv"
+trust_store = "/home/kussel/p/email_smpc/data/server2trust.jks"
+key_store = "/home/kussel/p/email_smpc/data/server2.jks"
+trust_store_pwd = "server2trust"
+key_store_pwd = "server2store"
+rest_port = 8089
+rest_address_prefix = "/rest/"
+internal_port = 1338
+
+bin_names = ["0+", "0-", "A+", "A-", "B+", "B-", "AB+", "AB-"]
+
+[[participants]]
+name = "Participant 1"
+email_address = "part1@teststudy.local"
+endpoint = "127.0.0.1:1337"
+
+[[participants]]
+name = "Participant 2"
+email_address = "part2@teststudy.local"
+endpoint = "127.0.0.1:1338"
+
+[[participants]]
+name = "Participant 3"
+email_address = "part3@teststudy.local"
+endpoint = "127.0.0.1:1339"
