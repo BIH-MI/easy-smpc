@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.TimeZone;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -24,7 +26,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class CovidApp {
     private Configuration config;
-    private HistogramImporter importer;
     private AppModel model;
     private Date lastUpdate;
     private BigInteger[] lastResult;
@@ -36,8 +37,10 @@ public class CovidApp {
     public volatile CountDownLatch allClientsInitialized; // If host, count down until all Ack. if client set to 0 if run signal
     public volatile CountDownLatch sumComputable;
     public volatile CountDownLatch resultComputable;
+    public volatile CountDownLatch rerunComputation;
     public volatile int ownId;
     public volatile ResultMessageBuffer resultMessageBuffer;
+    private Timer rerunTimer;
 
     public static void main(String[] args) {
         if (args.length != 1) {
@@ -46,7 +49,7 @@ public class CovidApp {
         }
         try {
             Configuration config = TOMLConfigReader.getConfig(new File(args[0]));
-            CovidApp app = new CovidApp(config, new CSVImporter(config.dataFile, config.binNames.length));
+            CovidApp app = new CovidApp(config);
             try {
                 app.runNetworkListener();
                 app.runRestServer();
@@ -60,6 +63,7 @@ public class CovidApp {
                 app.initializeNetworkSender();
                 app.sendMessages(MessageType.INITIAL);
                 app.allClientsInitialized.await();
+                app.allClientsInitialized = new CountDownLatch(config.participants.length -1);
                 try {
                     app.modelLock.readLock().tryLock(5, TimeUnit.SECONDS);
                     app.model.toContinuousFromIntialSending();
@@ -75,39 +79,16 @@ public class CovidApp {
             } else { // Not host
                 app.initializeClientModel();
                 app.initialized.await();
-                System.out.println("Initialized, continuing");
+                System.out.println("Model Initialized");
                 app.initializeNetworkSender();
                 app.sendAck();
-                try {
-                    app.modelLock.writeLock().tryLock(5, TimeUnit.SECONDS);
-                    BigInteger[] data = app.importer.getCounts();
-                    app.shareValues(data);
-                    app.model.populateShareMessages();
-                } catch (InterruptedException e) {
-                    System.err.println("Locking of WriteLock modelLock timed out! " + e);
-                    System.exit(-1);
-                } finally {
-                    app.modelLock.writeLock().unlock();
-                }
+                app.shareData(app.readData());
                 // switch to continuous is in ConnectionHandler
                 app.allClientsInitialized.await();
-
-                System.out.println("All initialized, start running");
+                System.out.println("All clients initialized, starting computation");
                 app.sendMessages(MessageType.SHARE);
             }
-            for (;;) {
-                app.sumComputable.await();
-                app.sumComputable = new CountDownLatch(1);
-                app.model.populateResultMessages();
-                app.sendMessages(MessageType.RESULT);
-                app.resultComputable.await();
-                app.resultComputable = new CountDownLatch(1);
-                app.transferMessageBufferToBins();
-                app.setNewResult(app.getResult());
-                app.resetModelBins();
-            }
-
-            // Update result, update timestamp
+            app.mainLoop();
         } catch (IllegalStateException e) {
             System.err.println("Error in config or data file: " + e);
             System.exit(-1);
@@ -150,10 +131,77 @@ public class CovidApp {
     public AppModel getModel() {
         return model;
     }
+    public void mainLoop() {
+    	for (;;) {
+            try {
+				sumComputable.await();
+				sumComputable = new CountDownLatch(1);
+				model.populateResultMessages();
+			
+				sendMessages(MessageType.RESULT);
+				resultComputable.await();
+				resultComputable = new CountDownLatch(1);
+				transferMessageBufferToBins();
+				resultMessageBuffer.clear();
+				setNewResult(getResult());
+				resetModel();
+				if (config.host && config.periodicRebuild == true && rerunTimer == null)
+					setTimer();
+				rerunComputation.await();
+			
+            rerunComputation = new CountDownLatch(1);
+            shareData(readData());
+            if (config.host) {
+            	sendMessages(MessageType.RECALC);
+            	allClientsInitialized.await();
+                allClientsInitialized = new CountDownLatch(config.participants.length -1);
+            }
+            } catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+            } catch (IllegalStateException | IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+        	sendMessages(MessageType.SHARE);
+        }
+    }
+    
+    public boolean isHost() {
+    	return config.host;
+    }
+    
+    public BigInteger[] readData() {
+    	try {
+            modelLock.writeLock().tryLock(5, TimeUnit.SECONDS);
+            HistogramImporter importer = new CSVImporter(config.dataFile, config.binNames.length);
+            BigInteger[] data = importer.getCounts();
+            return data;
+        } catch (InterruptedException e) {
+            System.err.println("Locking of WriteLock modelLock timed out! " + e);
+            System.exit(-1);
+        } catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+            modelLock.writeLock().unlock();
+        }
+    	//can not be reached
+    	return new BigInteger[0];
+    	
+    }
+    public void shareData(BigInteger[] data) {
+    	shareValues(data);
+        try {
+			model.populateShareMessages();
+		} catch (IllegalStateException | IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    }
 
-    public CovidApp(Configuration config, HistogramImporter importer) {
+    public CovidApp(Configuration config) {
         this.config = config;
-        this.importer = importer;
         modelLock = new ReentrantReadWriteLock();
         resultLock = new ReentrantReadWriteLock();
         initialized = new CountDownLatch(1);
@@ -165,6 +213,8 @@ public class CovidApp {
         sumComputable = new CountDownLatch(1);
         resultComputable = new CountDownLatch(1);
         resultMessageBuffer = new ResultMessageBuffer(config.participants.length);
+        rerunComputation = new CountDownLatch(1);
+        rerunTimer = null;
     }
 
     private void runNetworkListener() throws UnrecoverableKeyException, KeyManagementException, KeyStoreException,
@@ -177,6 +227,17 @@ public class CovidApp {
             NoSuchAlgorithmException, CertificateException, FileNotFoundException, IOException {
         RestServer endpoint = new RestServer(this, this.config);
         endpoint.run();
+    }
+    private void setTimer() {
+    	rerunTimer = new Timer();
+    	rerunTimer.scheduleAtFixedRate( new TimerTask() {
+    		@Override
+    		public void run() {
+    			rerunComputation.countDown();
+    		}
+    	}, 
+    			config.periodicRebuildSeconds*1000,
+    			config.periodicRebuildSeconds*1000);
     }
 
     private void shareValues(BigInteger[] data) {
@@ -191,19 +252,25 @@ public class CovidApp {
 
     }
 
-    private AppModel generateInitializedModel() {
+    private AppModel generateInitializedModel(){
         AppModel model = new AppModel();
         Participant[] participants = config.participants;
         Bin[] bins = new Bin[config.binNames.length];
+		HistogramImporter importer = null;
+		try {
+			importer = new CSVImporter(config.dataFile, config.binNames.length);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
         BigInteger[] data = importer.getCounts();
-        ArrayPrinter<BigInteger> dataptr = new ArrayPrinter<>();
-        System.out.println("Each party: " + dataptr.toString(data));
-
+        System.out.println("Read Data: "+ Arrays.toString(data));
         for (int i = 0; i < bins.length; ++i) {
             bins[i] = new Bin(config.binNames[i]);
             bins[i].initialize(participants.length);
             bins[i].shareValue(data[i]);
         }
+
         model.toStarting();
         model.toInitialSending(config.studyName, participants, bins);
         return model;
@@ -322,6 +389,9 @@ public class CovidApp {
                     case DONE_INIT:
                         networkSender.sendDoneInitMessage(recipient);
                         break;
+                    case RECALC:
+                    	networkSender.sendRecalculateMessage(recipient);
+                    	break;
                     }
                 }
             }
@@ -359,10 +429,10 @@ public class CovidApp {
 
     }
 
-    public void resetModelBins() {
+    public void resetModel() {
         try {
             modelLock.writeLock().tryLock(5, TimeUnit.SECONDS);
-            model.clearBins();
+            model.clearModel();
         } catch (InterruptedException e) {
             System.err.println("Locking of WriteLock modelLock timed out! " + e);
             System.exit(-1);
@@ -404,7 +474,7 @@ public class CovidApp {
     }
 
     private enum MessageType {
-        INITIAL, DONE_INIT, SHARE, RESULT
+        INITIAL, DONE_INIT, SHARE, RESULT, RECALC
     }
 
 }

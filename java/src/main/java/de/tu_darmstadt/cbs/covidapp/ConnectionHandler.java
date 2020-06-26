@@ -108,7 +108,6 @@ public class ConnectionHandler implements Runnable {
         } finally {
             app.readUnlockModel();
         }
-        System.out.println("Got ResultShare from " + sender);
     }
 
     private void handleMessage(String message) throws ClassNotFoundException, IOException {
@@ -129,13 +128,14 @@ public class ConnectionHandler implements Runnable {
         case "DoneInit":
             app.allClientsInitialized.countDown();
             break;
-        case "NewCalcShares":
-
+        case "Recalculate":
+        	app.rerunComputation.countDown();
+        	app.sendAck();
             break;
         case "AckInit":
             app.allClientsInitialized.countDown();
             break;
         }
-        System.out.println("Got Message from " + sender + " saying: " + messageParts[1]);
+        System.out.println("Got " + messageParts[1] + " Message from " + sender);
     }
 }

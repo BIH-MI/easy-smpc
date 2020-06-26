@@ -98,9 +98,9 @@ public class NetworkSender {
         send(recipient, networkMessage);
     }
 
-    public void sendNewCalcShareMessage(CovidParticipant recipient, String message)
+    public void sendRecalculateMessage(CovidParticipant recipient)
             throws UnknownHostException, IOException {
-        String networkMessage = senderString + "&NewCalcShare&" + message;
+        String networkMessage = senderString + "&Recalculate";
         send(recipient, networkMessage);
     }
 

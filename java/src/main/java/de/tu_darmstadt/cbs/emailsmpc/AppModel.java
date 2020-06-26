@@ -440,9 +440,12 @@ public class AppModel implements Serializable {
         }
     }
 
-    public void clearBins() {
+    public void clearModel() {
         for (Bin b : this.bins) {
             b.clearShares();
+        }
+        for (Message m : unsentMessages) {
+        	m = null;
         }
     }
 
