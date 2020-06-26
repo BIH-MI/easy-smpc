@@ -1,9 +1,9 @@
 study_name = "Test Study"
 host = false
 periodic_rebuild = false
-data_file = "/home/kussel/p/email_smpc/data/milestone da10.5.csv"
-trust_store = "/home/kussel/p/email_smpc/data/server3trust.jks"
-key_store = "/home/kussel/p/email_smpc/data/server3.jks"
+data_file = "../data/testdata_party3.csv"
+trust_store = "../data/server3trust.jks"
+key_store = "../data/server3.jks"
 trust_store_pwd = "server3trust"
 key_store_pwd = "server3store"
 rest_port = 8090
