@@ -216,16 +216,21 @@ public class CovidApp {
         df.setTimeZone(TimeZone.getTimeZone("Europe/Berlin"));
         try {
             resultLock.readLock().tryLock(5, TimeUnit.SECONDS);
-            String result = df.format(lastUpdate) + '&';
-            result += config.studyName + config.restDelimiter;
-            result += String.valueOf(config.binNames.length) + config.restDelimiter;
-            for (String name : config.binNames) {
-                result += name + config.restDelimiter;
+            String result = "{\"timestamp\": \"" + df.format(lastUpdate) + "\",";
+            result += "\"title\": \""+config.studyName +"\",";
+            result += "\"data\": [";
+            for (int i = 0; i < config.binNames.length; i++) {
+            	result += "{";
+                result += "\"name\": \""+config.binNames[i] + "\",";
+                result += "\"value\": "+lastResult[i];
+                if (i < config.binNames.length -1) {
+                	result += "},";
+                } else {
+                	result += "}";
+                }
             }
-            for (BigInteger r : lastResult) {
-                result += r.toString() + config.restDelimiter;
-            }
-            return result.substring(0, result.length() - 1); // remove last ampersand
+            result += "]";
+            return result + "}";
         } catch (InterruptedException e) {
             System.err.println("Locking of ReadLock resultLock timed out! " + e);
             System.exit(-1);
