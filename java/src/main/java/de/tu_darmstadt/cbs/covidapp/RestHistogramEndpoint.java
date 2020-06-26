@@ -29,6 +29,7 @@ public class RestHistogramEndpoint implements ContextHandler {
             }
             String responseMsg = app.getResultMessage();
             resp.getHeaders().add("Content-Type", "text/plain");
+            resp.getHeaders().add("Access-Control-Allow-Origin", "*");
             if (responseMsg == "NotReadyYet") {
                 resp.getHeaders().add("Retry-After", "60");
                 resp.getHeaders().add("Connection", "close");
