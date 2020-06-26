@@ -10,6 +10,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 
+import javax.net.ServerSocketFactory;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 
@@ -34,13 +35,15 @@ public class RestServer {
 
         VirtualHost host = server.getVirtualHost(null); // default virtual host
         host.addContext(config.restAddressPrefix + "histogram", new RestHistogramEndpoint(app), "GET");
-        KeyStore ks = KeyStore.getInstance("jks");
-        ks.load(new FileInputStream(config.keyStore), config.keyStorePwd.toCharArray());
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-        kmf.init(ks, config.keyStorePwd.toCharArray());
-        SSLContext sslContext = SSLContext.getInstance("TLS");
-        sslContext.init(kmf.getKeyManagers(), null, null);
-        server.setServerSocketFactory(sslContext.getServerSocketFactory());
+        if (config.host && config.periodicRebuild == false)
+        	host.addContext(config.restAddressPrefix + "recalculate", new RestRecalculateEndpoint(app), "GET");
+        //KeyStore ks = KeyStore.getInstance("jks");
+        //ks.load(new FileInputStream(config.keyStore), config.keyStorePwd.toCharArray());
+        //KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+        //kmf.init(ks, config.keyStorePwd.toCharArray());
+        //SSLContext sslContext = SSLContext.getInstance("TLS");
+        //sslContext.init(kmf.getKeyManagers(), null, null);
+        server.setServerSocketFactory(ServerSocketFactory.getDefault());
     }
 
     public void run() throws IOException {
