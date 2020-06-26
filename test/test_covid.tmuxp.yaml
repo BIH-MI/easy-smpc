@@ -17,9 +17,6 @@ windows:
         - java -jar ../java/target/emailsmpc-1.0-SNAPSHOT-jar-with-dependencies.jar ../data/testserver1config.toml
       - shell_command:
         - clear
-        - curl -k -G https://127.0.0.1:8088/rest/histogram
-        - sleep 4
-        - curl -k -G https://127.0.0.1:8088/rest/histogram
-        - sleep 3
-        - curl -k -G https://127.0.0.1:8088/rest/histogram
+        - sleep 8
+        - curl -G http://127.0.0.1:8088/rest/histogram
 
