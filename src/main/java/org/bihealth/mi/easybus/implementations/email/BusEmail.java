@@ -13,10 +13,14 @@
  */
 package org.bihealth.mi.easybus.implementations.email;
 
+import java.util.List;
+import java.util.Map;
+
 import org.bihealth.mi.easybus.Bus;
 import org.bihealth.mi.easybus.BusException;
 import org.bihealth.mi.easybus.Message;
 import org.bihealth.mi.easybus.MessageFilter;
+import org.bihealth.mi.easybus.MessageListener;
 import org.bihealth.mi.easybus.Participant;
 import org.bihealth.mi.easybus.Scope;
 
@@ -148,11 +152,9 @@ public class BusEmail extends Bus {
         // Create filter for relevant messages
         MessageFilter filter = new MessageFilter() {
             @Override
-            public boolean accepts(String messageDescription) {
-                // Check if participant and scope is registered
-                return isParticipantScopeRegistered(ConnectionEmail.getScope(messageDescription),
-                                                    ConnectionEmail.getParticipant(messageDescription));
-            }
+            public Map<Scope, Map<Participant, List<MessageListener>>> acceptedSubscriptions() {
+                return getSubscriptions();
+            }            
         };
 
         // Get mails

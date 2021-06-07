@@ -84,8 +84,8 @@ public abstract class ConnectionEmail {
                     for (int i = 0; i < 2; i++) {
                         BodyPart part = multipart.getBodyPart(i);
                         if (part != null && part.getDisposition().equalsIgnoreCase(MimeBodyPart.ATTACHMENT)) {
-                          attachment = getObject(((MimeBodyPart)part).getInputStream());
-                      }                        
+                            attachment = getObject(((MimeBodyPart)part).getInputStream());
+                        }
                     }
                 }
             } catch (Exception e) {
@@ -365,9 +365,7 @@ public abstract class ConnectionEmail {
         String recipient = sharedMailbox ? getEmailAddress() : participant.getEmailAddress();
         
         // Subject
-        String subject = EMAIL_SUBJECT_PREFIX + SCOPE_NAME_START_TAG + scope.getName() + SCOPE_NAME_END_TAG + " " + 
-                PARTICIPANT_NAME_START_TAG + participant.getName() + PARTICIPANT_NAME_END_TAG + " " + 
-                PARTICIPANT_EMAIL_START_TAG + participant.getEmailAddress() + PARTICIPANT_EMAIL_END_TAG;
+        String subject = createSubjectLine(scope, participant);
   
         // Body
         String body = SCOPE_NAME_START_TAG + scope.getName() + SCOPE_NAME_END_TAG + "\n" + 
@@ -377,7 +375,7 @@ public abstract class ConnectionEmail {
         // Send
         this.send(recipient, subject, body, message);
     }
-  
+
     /** 
      * Send email
      * @param recipient
@@ -402,4 +400,17 @@ public abstract class ConnectionEmail {
      * @return
      */
     protected abstract boolean isSendingConnected();
+    
+    /**
+     * Create subject line
+     * 
+     * @param scope
+     * @param participant
+     * @return
+     */
+    protected static String createSubjectLine(Scope scope, Participant participant) {
+        return EMAIL_SUBJECT_PREFIX + SCOPE_NAME_START_TAG + scope.getName() + SCOPE_NAME_END_TAG + " " + 
+                PARTICIPANT_NAME_START_TAG + participant.getName() + PARTICIPANT_NAME_END_TAG + " " + 
+                PARTICIPANT_EMAIL_START_TAG + participant.getEmailAddress() + PARTICIPANT_EMAIL_END_TAG;
+       }
 }

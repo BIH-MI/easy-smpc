@@ -115,32 +115,13 @@ public abstract class Bus {
         return received;
     }
     
+
     /**
-     * Is there a listener for the participant and scope registered
+     * Get subscriptions
      * 
-     * @param scope
-     * @param participant
      * @return
      */
-    protected boolean isParticipantScopeRegistered(Scope scope, Participant participant) {
-        // Check not null
-        if (scope == null || participant == null) {
-            return false;
-        }
-        
-        // Check if scope exists
-        Map<Participant,List<MessageListener>> subscriptionsForScope = subscriptions.get(scope);        
-        if (subscriptionsForScope == null) {
-           return false;
-        }
-        
-        // Check if participant is registered for scope
-        if (subscriptionsForScope.get(participant) == null ||
-            subscriptionsForScope.get(participant).size() == 0) {
-            return false;
-        }
-        
-        // At least one is listener is registered for scope and participant tuple
-        return true;     
+    protected Map<Scope, Map<Participant, List<MessageListener>>> getSubscriptions() {
+        return subscriptions;
     }
 }

@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.zip.GZIPOutputStream;
 
@@ -36,11 +37,17 @@ import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMessage.RecipientType;
 import javax.mail.internet.MimeMultipart;
+import javax.mail.search.OrTerm;
+import javax.mail.search.SearchTerm;
+import javax.mail.search.SubjectTerm;
 import javax.mail.util.ByteArrayDataSource;
 
 import org.apache.commons.math3.util.Pair;
 import org.bihealth.mi.easybus.BusException;
 import org.bihealth.mi.easybus.MessageFilter;
+import org.bihealth.mi.easybus.MessageListener;
+import org.bihealth.mi.easybus.Participant;
+import org.bihealth.mi.easybus.Scope;
 import org.bihealth.mi.easysmpc.resources.Resources;
 
 /**
@@ -197,23 +204,44 @@ public class ConnectionIMAP extends ConnectionEmail {
             
             try {
                 
-                // Load messages
-                for (Message message : folder.getMessages()) {
+                // Create search terms
+                SearchTerm searchTerm;
+                if (filter != null && !filter.acceptedSubscriptions().isEmpty()) {
+                    List<SubjectTerm> subjectTerms = new ArrayList<>();
+                    Map<Scope, Map<Participant, List<MessageListener>>> subscriptions = filter.acceptedSubscriptions();
+                    for (Scope scope : subscriptions.keySet()) {
+                        for (Participant participant : subscriptions.get(scope).keySet()) {
+                            subjectTerms.add(new SubjectTerm(ConnectionEmail.createSubjectLine(scope, participant)));
+                        }
+                    }
+                    if (subjectTerms.size() > 1) {
+                        searchTerm = new OrTerm(subjectTerms.toArray(new SearchTerm[] {}));
+                    }
+                    else {
+                        searchTerm = subjectTerms.get(0);
+                    }
+                } else {
+                    searchTerm = new SearchTerm() {
+                        /** SVUID */
+                        private static final long serialVersionUID = -3767143369949112976L;
+
+                        @Override
+                        public boolean match(Message msg) {
+                            return true;
+                        }
+                    };
+                }
+                
+                // Load relevant messages messages
+                for (Message message : folder.search(searchTerm)) {
 
                     // Check for interrupt
                     if (Thread.interrupted()) { 
                         throw new InterruptedException();
                     }
-
-                    // Select relevant messages
-                    try {
-                        if (message.getSubject().startsWith(EMAIL_SUBJECT_PREFIX) &&
-                                (filter == null || filter.accepts(message.getSubject()))) {                           
-                                result.add(new ConnectionEmailMessage(message, folder));
-                        }
-                    } catch (Exception e) {
-                        // Ignore, as this may be a result of non-transactional properties of the IMAP protocol
-                    }
+                    
+                    // Add message
+                    result.add(new ConnectionEmailMessage(message, folder));
                 }
                 
             } catch (MessagingException e) {
@@ -222,6 +250,7 @@ public class ConnectionIMAP extends ConnectionEmail {
             
             // Done
             return result;
+            
         }
     }
 

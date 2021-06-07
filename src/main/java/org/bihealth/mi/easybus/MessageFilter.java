@@ -13,6 +13,9 @@
  */
 package org.bihealth.mi.easybus;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * Interface to filter relevant messages
  * 
@@ -27,6 +30,6 @@ public interface MessageFilter {
      * @param messageDescription
      * @return 
      */
-    public boolean accepts(String messageDescription);
+    public Map<Scope, Map<Participant, List<MessageListener>>> acceptedSubscriptions();
 
 }
